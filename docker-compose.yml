@@ -1,0 +1,43 @@
+# Rouvanta — services Docker
+# Les valeurs ${...} sont lues automatiquement dans le fichier .env à la racine.
+
+services:
+  # Base de données PostgreSQL 16
+  db:
+    image: postgres:16
+    container_name: rouvanta-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      # Volume persistant : les données survivent à l'arrêt du conteneur
+      - rouvanta-db-data:/var/lib/postgresql/data
+    healthcheck:
+      # Vérifie que PostgreSQL accepte les connexions
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin : interface web pour explorer la base (optionnel)
+  # Lancé seulement avec : docker compose --profile tools up -d
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: rouvanta-pgadmin
+    restart: unless-stopped
+    profiles: ["tools"]
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    ports:
+      - "5050:80"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  rouvanta-db-data:
